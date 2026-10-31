@@ -16,7 +16,7 @@ class PricingApp:
 
     def __init__(self):
         st.set_page_config(page_title="Option Pricer", page_icon="📈", layout="wide")
-        st.title("📈 Option Pricer - arbres binomial et trinomial")
+        st.title("Option Pricer - arbre binomial/trinomial")
         st.caption("1. Saisissez les paramètres dans le menu de gauche · 2. Cliquez sur « Lancer le pricer » · "
                    "3. Explorez les trois onglets (les onglets 2 et 3 se lancent avec leur propre bouton).")
 
