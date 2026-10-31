@@ -411,12 +411,13 @@ class EtudeComparative:
         """Call / put x européen / américain quand le dividende, sa date, la maturité ou le taux varie."""
         n_used = min(pricer.nb_steps, 1000)
         with Affichage.section(f"Call / put, américain / européen – {n_used:,} pas",
-                               "Les quatre options sur la même grille. L'écart "
-                               "américaine - européenne mesure la valeur de l'exercice anticipé."):
-            c1, c2, c3 = st.columns([3, 2, 1.4], vertical_alignment="bottom")
-            which = c1.radio("Paramètre qui varie", ["Dividende", "Date ex-dividende", "Maturité", "Taux"], horizontal=True, key=f"cmp_types_{key}")
-            view = c2.radio("Afficher", ["Prix", "Écart américain - européen"], horizontal=True, key=f"cmp_types_view_{key}")
-            zero_rate = c3.checkbox("Taux r = 0", value=which != "Taux", disabled=which == "Taux", key=f"cmp_types_r0_{key}_{which}",
+                               "Les quatre options sur la même grille (axe de gauche) ; l'écart américaine − "
+                               "européenne (axe de droite) mesure la valeur de l'exercice anticipé."):
+            c1, c2 = st.columns([3, 1.4], vertical_alignment="bottom")
+            which = c1.radio("Paramètre qui varie", ["Dividende", "Date ex-dividende", "Maturité", "Taux"],
+                             horizontal=True, key=f"cmp_types_{key}")
+            zero_rate = c2.checkbox("Taux r = 0", value=which != "Taux", disabled=which == "Taux",
+                                    key=f"cmp_types_r0_{key}_{which}",
                                     help="Isole l'effet du dividende de celui du taux.")
             m = Market(**{**vars(market), "rate": 0.0}) if zero_rate and which != "Taux" else market
             saved = st.session_state.get("res_types")
@@ -433,7 +434,8 @@ class EtudeComparative:
                         xs = [pricer.pricing_date + dt.timedelta(days=int(d)) for d in np.linspace(1, days, 13)]
                         cases = [(Market(m.s0, m.rate, m.vol, div, x), option) for x in xs]
                     elif which == "Maturité":
-                        xs = [pricer.pricing_date + dt.timedelta(days=max(1, int(d))) for d in np.linspace(0.1 * days, 2 * days, 13)]
+                        xs = [pricer.pricing_date + dt.timedelta(days=max(1, int(d)))
+                              for d in np.linspace(0.1 * days, 2 * days, 13)]
                         cases = [(m, Option(option.K, x, option.call_put, option.eur_am)) for x in xs]
                     else:
                         xs = list(np.linspace(-0.01, 0.10, 12))
@@ -445,18 +447,22 @@ class EtudeComparative:
                         for x, (mk, op) in zip(xs, cases)])
                 st.session_state["res_types"] = ((key, which, zero_rate), df)
             df = st.session_state["res_types"][1]
-            fig = Affichage.new_fig(f"{view} selon : {which.lower()}" + (" (r = 0)" if m.rate == 0 and which != "Taux" else ""),
-                                    which, "Prix" if view == "Prix" else "Américaine - européenne")
-            if view == "Prix":
-                for col in df.columns[1:]:
-                    fig.add_trace(go.Scatter(x=df["x"], y=df[col], mode="lines+markers", name=col,
-                                             line=dict(color=Affichage.COLORS[0 if col.startswith("Call") else 1],
-                                                       dash="solid" if "américain" in col else "dot")))
-            else:
-                for i, kind in enumerate(("Call", "Put")):
-                    fig.add_trace(go.Scatter(x=df["x"], y=df[f"{kind} américain"] - df[f"{kind} européen"],
-                                             mode="lines+markers", name=f"{kind} : US − EU",
-                                             line=dict(color=Affichage.COLORS[i])))
+    
+            title = f"Prix et écart américain − européen selon : {which.lower()}"
+            if m.rate == 0 and which != "Taux":
+                title += " (r = 0)"
+            fig = Affichage.new_fig(title, which, "Prix")
+            for col in df.columns[1:]:
+                fig.add_trace(go.Scatter(x=df["x"], y=df[col], mode="lines+markers", name=col,
+                                         line=dict(color=Affichage.COLORS[0 if col.startswith("Call") else 1],
+                                                   dash="solid" if "américain" in col else "dot")))
+            for i, kind in enumerate(("Call", "Put")):
+                fig.add_trace(go.Scatter(x=df["x"], y=df[f"{kind} américain"] - df[f"{kind} européen"],
+                                         mode="lines+markers", name=f"{kind} : US − EU", yaxis="y2",
+                                         line=dict(color=Affichage.COLORS[i], dash="dash")))
+    
+            fig.update_layout(yaxis2=dict(title="Écart américain − européen", overlaying="y", side="right",
+                                          showgrid=False, tickformat="~g"))
             Affichage.show_chart(fig, f"cmp_types_plot_{key}")
 
     @staticmethod
