@@ -156,7 +156,7 @@ class EtudePricing:
     def arbre(pricer: PriceParameters, state: dict) -> None:
         """Arbre de valorisation : ordonnée, couleur des nœuds, fenêtre de pas, frontière d'exercice."""
         n = pricer.nb_steps
-        with Affichage.section(f"Arbre de valorisation – {n:,} pas", "..."):
+        with Affichage.section(f"Arbre de valorisation"):
             c_y, c_color, c_log = st.columns([1, 1, 0.6], vertical_alignment="bottom")
             y_label = c_y.selectbox("Ordonnée", list(TreeVisualizer.Y_OPTIONS), key="tree_y")
             color_label = c_color.selectbox("Couleur des nœuds", list(TreeVisualizer.COLOR_OPTIONS), key="tree_color")
@@ -177,7 +177,7 @@ class EtudePricing:
         """Histogramme et fonction de répartition du sous-jacent à un pas choisi (axe cadré sur 99,9 % de la masse)."""
         levels = state["tree"].levels
         n = len(levels) - 1
-        with Affichage.section(f"Distribution du sous-jacent – {n:,} pas",
+        with Affichage.section(f"Distribution du sous-jacent",
                            "Loi risque-neutre du sous-jacent lue sur l'arbre au pas choisi."):
             t = st.slider("Pas de temps t étudié", 0, n, n, key="dist_t")
             cache_key = (id(state["tree"]), t)
