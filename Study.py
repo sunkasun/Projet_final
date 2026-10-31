@@ -157,7 +157,6 @@ class EtudePricing:
         """Arbre de valorisation : ordonnée, couleur des nœuds, fenêtre de pas, frontière d'exercice."""
         n = pricer.nb_steps
         with Affichage.section(f"Arbre de valorisation – {n:,} pas", "..."):
-        with Affichage.section("Arbre de valorisation", "..."):
             c_y, c_color, c_log = st.columns([1, 1, 0.6], vertical_alignment="bottom")
             y_label = c_y.selectbox("Ordonnée", list(TreeVisualizer.Y_OPTIONS), key="tree_y")
             color_label = c_color.selectbox("Couleur des nœuds", list(TreeVisualizer.COLOR_OPTIONS), key="tree_color")
