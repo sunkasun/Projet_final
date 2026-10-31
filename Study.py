@@ -156,16 +156,19 @@ class EtudePricing:
     def arbre(pricer: PriceParameters, state: dict) -> None:
         """Arbre de valorisation : ordonnée, couleur des nœuds, fenêtre de pas, frontière d'exercice."""
         n = pricer.nb_steps
-        with Affichage.section("Arbre de valorisation",
-                               "Zoom : sélection à la souris · double-clic : vue complète · réduisez la fenêtre de pas "
-                               "pour voir les branches d'un grand arbre. Export en image : icône appareil photo."):
+        with Affichage.section("Arbre de valorisation", "..."):
             c_y, c_color, c_log = st.columns([1, 1, 0.6], vertical_alignment="bottom")
             y_label = c_y.selectbox("Ordonnée", list(TreeVisualizer.Y_OPTIONS), key="tree_y")
             color_label = c_color.selectbox("Couleur des nœuds", list(TreeVisualizer.COLOR_OPTIONS), key="tree_color")
             log_y = c_log.checkbox("Échelle log", key="tree_log")
             t_range = st.slider("Fenêtre de pas affichée", 0, n, (0, min(n, 60)), key="tree_window") if n > 1 else (0, n)
-            view = TreeVisualizer.build(state["tree"], TreeVisualizer.Y_OPTIONS[y_label],
-                                        TreeVisualizer.COLOR_OPTIONS[color_label], tuple(t_range), log_y)
+            cache_key = (id(state["tree"]), y_label, color_label, tuple(t_range), log_y)
+            if st.session_state.get("tree_view_key") != cache_key:
+                st.session_state["tree_view"] = TreeVisualizer.build(
+                    state["tree"], TreeVisualizer.Y_OPTIONS[y_label],
+                    TreeVisualizer.COLOR_OPTIONS[color_label], tuple(t_range), log_y)
+                st.session_state["tree_view_key"] = cache_key
+            view = st.session_state["tree_view"]
             Affichage.show_chart(view["fig"], "tree_plot")
             st.caption(view["caption"])
 
@@ -177,17 +180,22 @@ class EtudePricing:
         with Affichage.section("Distribution du sous-jacent",
                                "Loi risque-neutre du sous-jacent lue sur l'arbre au pas choisi."):
             t = st.slider("Pas de temps t étudié", 0, n, n, key="dist_t")
-            order = np.argsort(levels[t]["S"])
-            S, P = levels[t]["S"][order], levels[t]["P"][order] / levels[t]["P"].sum()
-            cdf = np.cumsum(P)
-            mean = float((S * P).sum())
-            lo = S[min(int(np.searchsorted(cdf, 5e-4)), len(S) - 1)]
-            hi = S[min(int(np.searchsorted(cdf, 1 - 5e-4)), len(S) - 1)]
-            lo, hi = (lo - 1.0, hi + 1.0) if hi <= lo else (lo - 0.04 * (hi - lo), hi + 0.04 * (hi - lo))
-            inside = (S >= lo) & (S <= hi)
-            edges = np.linspace(lo, hi, 61)                                  # 60 intervalles égaux
-            mass = np.bincount(np.clip(np.searchsorted(edges, S[inside], side="right") - 1, 0, 59),
-                               weights=P[inside], minlength=60)
+            cache_key = (id(state["tree"]), t)
+            if st.session_state.get("dist_key") != cache_key:
+                order = np.argsort(levels[t]["S"])
+                S, P = levels[t]["S"][order], levels[t]["P"][order] / levels[t]["P"].sum()
+                cdf = np.cumsum(P)
+                mean = float((S * P).sum())
+                lo = S[min(int(np.searchsorted(cdf, 5e-4)), len(S) - 1)]
+                hi = S[min(int(np.searchsorted(cdf, 1 - 5e-4)), len(S) - 1)]
+                lo, hi = (lo - 1.0, hi + 1.0) if hi <= lo else (lo - 0.04 * (hi - lo), hi + 0.04 * (hi - lo))
+                inside = (S >= lo) & (S <= hi)
+                edges = np.linspace(lo, hi, 61)
+                mass = np.bincount(np.clip(np.searchsorted(edges, S[inside], side="right") - 1, 0, 59),
+                                   weights=P[inside], minlength=60)
+                st.session_state["dist"] = (S, P, cdf, mean, lo, hi, edges, mass)
+                st.session_state["dist_key"] = cache_key
+            S, P, cdf, mean, lo, hi, edges, mass = st.session_state["dist"]
             st.caption(f"Espérance de l'arbre {mean:,.4f} · écart-type {math.sqrt(max((P * (S - mean) ** 2).sum(), 0)):,.4f}"
                        f" · {len(S):,} nœuds")
             left, right = st.columns(2)
