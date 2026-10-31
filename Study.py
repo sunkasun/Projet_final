@@ -258,7 +258,7 @@ class EtudeComparative:
     """Convergence (prix, grecques), prix selon le strike, 4 types d'options, grecques selon un paramètre."""
 
     METHODS = (TreeMethod.BINOMIAL, TreeMethod.TRINOMIAL)
-    CONV_VIEWS = ("Niveau", "Erreur (arbre - référence)", "Erreur x N")
+    CONV_VIEWS = ("Erreur (arbre - référence)", "Erreur x N")
 
     @classmethod
     def render(cls, market: Market, option: Option, pricer: PriceParameters, key: str) -> None:
@@ -292,24 +292,26 @@ class EtudeComparative:
                     n_max = max(500, pricer.nb_steps)
                     grid = sorted(set(range(1, 101)) | {int(round(x)) for x in np.geomspace(100, n_max, 41)})
                     df = pd.DataFrame([{"N": n, **{m.label: Orchestrator.price(market, option, PriceParameters(
-                        **{**vars(pricer), "nb_steps": n, "tree_method": m, "engine": "vector"})) for m in cls.METHODS}}
-                        for n in grid])
+                        **{**vars(pricer), "nb_steps": n, "tree_method": m, "engine": "vector"}))
+                        for m in cls.METHODS}} for n in grid])
                     ref, ref_label = Orchestrator.black_scholes(market, option, pricer), "Black-Scholes"
                     if ref is None:
                         n_ref = min(10_000, 2 * n_max)
                         ref = Orchestrator.price(market, option, PriceParameters(
-                            **{**vars(pricer), "nb_steps": n_ref, "tree_method": TreeMethod.TRINOMIAL, "engine": "vector"}))
+                            **{**vars(pricer), "nb_steps": n_ref, "tree_method": TreeMethod.TRINOMIAL,
+                               "engine": "vector"}))
                         ref_label = f"trinomial N = {n_ref:,}"
                 st.session_state["res_conv_price"] = (key, df, ref, ref_label)
             _, df, ref, ref_label = st.session_state["res_conv_price"]
-            fig = Affichage.new_fig(f"Prix selon N - {view}", "Nombre de pas N", f"Prix ({view.lower()})", height=470)
+            scale = df["N"] if view == "Erreur x N" else 1
+            y_title = "Erreur × N (arbre - référence)" if view == "Erreur x N" else "Erreur (arbre - référence)"
+            fig = Affichage.new_fig(f"Convergence du prix vs {ref_label}", "Nombre de pas N", y_title, height=470)
             for m in cls.METHODS:
                 color, dash = Affichage.METHOD_STYLE[m]
-                y = df[m.label] if view == "Niveau" else (df[m.label] - ref) * (df["N"] if view == "Erreur × N" else 1)
-                fig.add_trace(go.Scatter(x=df["N"], y=y, mode="lines+markers", name=m.label, marker=dict(size=3),
+                fig.add_trace(go.Scatter(x=df["N"], y=(df[m.label] - ref) * scale, mode="lines+markers",
+                                         name=m.label, marker=dict(size=3),
                                          line=dict(color=color, width=1.6, dash=dash)))
-            fig.add_hline(y=ref if view == "Niveau" else 0, line_dash="dot", line_color="black",
-                          annotation_text=ref_label if view == "Niveau" else None)
+            fig.add_hline(y=0, line_dash="dot", line_color="black")
             fig.update_xaxes(type="log")
             Affichage.show_chart(fig, f"cmp_conv_{key}")
 
@@ -317,33 +319,47 @@ class EtudeComparative:
     def convergence_grecques(cls, market: Market, option: Option, pricer: PriceParameters, key: str) -> None:
         """Une grecque (GreeksTree) selon N, binomial et trinomial ; référence Black-Scholes si disponible."""
         bs = Orchestrator.greeks_bs(market, option, pricer)
-        with Affichage.section("Convergence des grecques : binomial vs trinomial"):
+        with Affichage.section("Convergence des grecques : binomial vs trinomial",
+                               "Erreur vs Black-Scholes ; « Erreur x N » pour l'ordre de convergence. "
+                               "Si BS n'est pas disponible (américaine, dividende) : valeurs brutes."):
             c_g, c_v = st.columns([2, 3], vertical_alignment="bottom")
             greek = c_g.selectbox("Grecque", GREEKS, key=f"cmp_greek_conv_{key}")
-            view = c_v.radio("Graphique", cls.CONV_VIEWS if bs else cls.CONV_VIEWS[:1], horizontal=True, key=f"cmp_gconv_view_{key}")
-            view = view if bs else "Niveau"
+            if bs:
+                view = c_v.radio("Graphique", cls.CONV_VIEWS, horizontal=True, key=f"cmp_gconv_view_{key}")
+            else:
+                view = None
+                c_v.caption("Black-Scholes indisponible : valeurs brutes affichées (pas de bascule erreur).")
             store = st.session_state.setdefault("res_conv_greeks", {})
             if store.get("key") != key:
                 store.clear()
                 store["key"] = key
             if greek not in store:
                 with st.spinner(f"Convergence de {greek}…"):
-                    n_max = min(max(100, pricer.nb_steps), 2000 if pricer.pruning else pricer.max_unpruned_steps("vector"))
+                    n_max = min(max(100, pricer.nb_steps),
+                                2000 if pricer.pruning else pricer.max_unpruned_steps("vector"))
                     grid = sorted(set(range(3, min(100, n_max) + 1)) |
                                   ({int(round(x)) for x in np.geomspace(100, n_max, 31)} if n_max > 100 else set()))
-                    store[greek] = {m: pd.DataFrame([{"N": n, greek: Orchestrator.greeks_tree(market, option, PriceParameters(
-                        **{**vars(pricer), "nb_steps": n, "tree_method": m}), (greek,))[greek]} for n in grid])
-                        for m in cls.METHODS}
-            ref = bs[greek] if bs else None
-            fig = Affichage.new_fig(f"{greek} selon N - {view}", "Nombre de pas N", f"{greek} ({view.lower()})", height=470)
-            for m, df in store[greek].items():
-                color, dash = Affichage.METHOD_STYLE[m]
-                y = df[greek] if view == "Niveau" else (df[greek] - ref) * (df["N"] if view == "Erreur x N" else 1)
-                fig.add_trace(go.Scatter(x=df["N"], y=y, mode="lines+markers", name=m.label, marker=dict(size=3),
-                                         line=dict(color=color, width=1.6, dash=dash)))
-            if ref is not None:
-                fig.add_hline(y=ref if view == "Niveau" else 0, line_dash="dot", line_color="black",
-                              annotation_text="BS" if view == "Niveau" else None)
+                    store[greek] = {m: pd.DataFrame([{"N": n, greek: Orchestrator.greeks_tree(
+                        market, option, PriceParameters(**{**vars(pricer), "nb_steps": n, "tree_method": m}),
+                        (greek,))[greek]} for n in grid]) for m in cls.METHODS}
+            if bs:
+                ref = bs[greek]
+                scale = next(iter(store[greek].values()))["N"] if view == "Erreur x N" else 1
+                y_title = f"{greek} : erreur × N vs BS" if view == "Erreur x N" else f"{greek} : erreur vs BS"
+                fig = Affichage.new_fig(f"Convergence de {greek} vs Black-Scholes", "Nombre de pas N", y_title, height=470)
+                for m, df in store[greek].items():
+                    color, dash = Affichage.METHOD_STYLE[m]
+                    fig.add_trace(go.Scatter(x=df["N"], y=(df[greek] - ref) * scale, mode="lines+markers",
+                                             name=m.label, marker=dict(size=3),
+                                             line=dict(color=color, width=1.6, dash=dash)))
+                fig.add_hline(y=0, line_dash="dot", line_color="black")
+            else:
+                fig = Affichage.new_fig(f"Convergence de {greek} (valeurs brutes)", "Nombre de pas N", greek, height=470)
+                for m, df in store[greek].items():
+                    color, dash = Affichage.METHOD_STYLE[m]
+                    fig.add_trace(go.Scatter(x=df["N"], y=df[greek], mode="lines+markers",
+                                             name=m.label, marker=dict(size=3),
+                                             line=dict(color=color, width=1.6, dash=dash)))
             fig.update_xaxes(type="log")
             Affichage.show_chart(fig, f"cmp_gconv_{key}")
             st.caption("Les dérivées secondes (Gamma, Vomma) oscillent davantage : elles dérivent deux fois un prix déjà "
