@@ -24,9 +24,6 @@ class PricingApp:
         """Menu latéral : construit séparément Market, Option et PriceParameters."""
         today = dt.date.today()
         st.sidebar.header("Paramètres")
-        # hors du formulaire : changer ce choix grise immédiatement le champ inutilisé
-        optimal_mode = st.sidebar.radio("Choix du nombre de pas", ["Nombre de pas N", "Nombre de pas optimal"],
-                                        horizontal=True, key="steps_mode") == "Nombre de pas optimal"
         with st.sidebar.form("pricing_parameters"):
             st.subheader("Marché")
             spot = st.number_input("Spot S0", min_value=0.01, value=100.0, step=1.0)
@@ -46,15 +43,18 @@ class PricingApp:
             pricing_date = st.date_input("Date de pricing", value=today, format="DD/MM/YYYY")
             method = st.selectbox("Méthode d'arbre", [TreeMethod.BINOMIAL, TreeMethod.TRINOMIAL],
                                   format_func=lambda m: m.label)
-            nb_steps = st.number_input("Nombre de pas", min_value=1, max_value=self.MAX_STEPS, value=100, step=10,
-                                       disabled=optimal_mode)
+            optimal_mode = st.radio("Choix du nombre de pas",
+                                    ["Nombre de pas N", "Nombre de pas optimal"],
+                                    horizontal=True, key="steps_mode") == "Nombre de pas optimal"
+            nb_steps = st.number_input("Nombre de pas N", min_value=1, max_value=self.MAX_STEPS, value=100, step=10,
+                                       help="Utilisé en mode « Nombre de pas N ».")
             max_error = st.number_input("Erreur maximale", min_value=1e-6, value=0.01, step=0.001, format="%.4f",
-                                        disabled=not optimal_mode)
+                                        help="Utilisé en mode « Nombre de pas optimal ».")
             engine, pricing_method = self.ENGINES[st.selectbox("Moteur de calcul", list(self.ENGINES))]
             pruning = st.checkbox("Activer le pruning", value=True,
                                   help=f"Les nœuds de probabilité < {self.PRUNING_THRESHOLD:.0e} ne sont plus ramifiés.")
             submitted = st.form_submit_button("Lancer le pricer", type="primary")
-
+    
         if optimal_mode:
             T = PriceParameters.year_fraction(pricing_date, maturity)
             nb_steps = min(PriceParameters.nb_steps_from_error(max_error, spot, vol, max(T, 1e-12)), self.MAX_STEPS)
