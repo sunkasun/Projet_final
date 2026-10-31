@@ -273,7 +273,7 @@ class EtudeComparative:
         """Prix binomial et trinomial selon N (1 à 100, puis 40 valeurs jusqu'au N maximal) : niveau, erreur, x N."""
         with Affichage.section("Convergence du prix : binomial vs trinomial", "Trait plein : binomial ; tirets : "
                                "trinomial. Référence : Black-Scholes, sinon trinomial à 2 x N."):
-            view = st.radio("Graphique", cls.CONV_VIEWS, horizontal=True, key="cmp_conv_view")
+            view = st.radio("Graphique", cls.CONV_VIEWS, horizontal=True, key=f"cmp_conv_view_{key}")
             saved = st.session_state.get("res_conv_price")
             if saved is None or saved[0] != key:
                 with st.spinner("Convergence du prix…"):
@@ -307,9 +307,9 @@ class EtudeComparative:
         bs = Orchestrator.greeks_bs(market, option, pricer)
         with Affichage.section("Convergence des grecques : binomial vs trinomial"):
             c_g, c_v = st.columns([2, 3], vertical_alignment="bottom")
-            greek = c_g.selectbox("Grecque", GREEKS, key="cmp_greek_conv")
-            view = c_v.radio("Graphique", cls.CONV_VIEWS if bs else cls.CONV_VIEWS[:1], horizontal=True,
-                             key="cmp_gconv_view")
+            greek = c_g.selectbox("Grecque", GREEKS, key=f"cmp_greek_conv_{key}")
+            view  = c_v.radio("Graphique", ..., horizontal=True, key=f"cmp_gconv_view_{key}")
+            view = c_v.radio("Graphique", cls.CONV_VIEWS if bs else cls.CONV_VIEWS[:1], horizontal=True, key=f"cmp_gconv_view_{key}")
             view = view if bs else "Niveau"
             store = st.session_state.setdefault("res_conv_greeks", {})
             if store.get("key") != key:
@@ -385,11 +385,10 @@ class EtudeComparative:
         with Affichage.section("Call / put, américain / européen", "Les quatre options sur la même grille. L'écart "
                                "américaine - européenne mesure la valeur de l'exercice anticipé."):
             c1, c2, c3 = st.columns([3, 2, 1.4], vertical_alignment="bottom")
-            which = c1.radio("Paramètre qui varie", ["Dividende", "Date ex-dividende", "Maturité", "Taux"],
-                             horizontal=True, key="cmp_types")
-            view = c2.radio("Afficher", ["Prix", "Écart américain - européen"], horizontal=True, key="cmp_types_view")
-            zero_rate = c3.checkbox("Taux r = 0", value=which != "Taux", disabled=which == "Taux",
-                                    key=f"cmp_types_r0_{which}", help="Isole l'effet du dividende de celui du taux.")
+            which = c1.radio("Paramètre qui varie", ["Dividende", "Date ex-dividende", "Maturité", "Taux"], horizontal=True, key=f"cmp_types_{key}")
+            view = c2.radio("Afficher", ["Prix", "Écart américain - européen"], horizontal=True, key=f"cmp_types_view_{key}")
+            zero_rate = c3.checkbox("Taux r = 0", value=which != "Taux", disabled=which == "Taux", key=f"cmp_types_r0_{key}_{which}",
+                                    help="Isole l'effet du dividende de celui du taux.")
             m = Market(**{**vars(market), "rate": 0.0}) if zero_rate and which != "Taux" else market
             saved = st.session_state.get("res_types")
             if saved is None or saved[0] != (key, which, zero_rate):
@@ -436,10 +435,10 @@ class EtudeComparative:
         """Grecques de l'arbre (trait plein) et Black-Scholes (pointillés) quand S0, r, T ou σ varie."""
         with Affichage.section("Grecques selon un paramètre, comparées à Black-Scholes"):
             c_p, c_g, c_n = st.columns([2, 3, 1.3], vertical_alignment="bottom")
-            which = c_p.radio("Paramètre qui varie", ["S0", "r", "T", "σ"], horizontal=True, key="cmp_gparam")
-            greeks = c_g.multiselect("Grecques", GREEKS, default=["Delta", "Gamma", "Vega"], key="cmp_gparam_sel")
-            normalize = c_n.checkbox("Normaliser", value=True, key="cmp_norm", help="Divise chaque grecque par son "
-                                     "max |arbre| : rend comparables des grecques d'ordres de grandeur différents.")
+            which = c_p.radio("Paramètre qui varie", ["S0", "r", "T", "σ"], horizontal=True, key=f"cmp_gparam_{key}")
+            greeks = c_g.multiselect("Grecques", GREEKS, default=["Delta", "Gamma", "Vega"], key=f"cmp_gparam_sel_{key}")
+            normalize = c_n.checkbox("Normaliser", value=True, key=f"cmp_norm_{key}",
+                                     help="Divise chaque grecque par son max |arbre| : rend comparables des grecques d'ordres de grandeur différents.")
             saved = st.session_state.get("res_gparam")
             if saved is None or saved[0] != (key, which):
                 with st.spinner("Grecques générées par l'arbre…"):
