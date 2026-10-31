@@ -19,20 +19,18 @@ class Black_Scholes:
         else:
             self.d1 = (math.log(s0 / k) + (r + 0.5 * vol ** 2) * self.T) / (vol * math.sqrt(self.T))
             self.d2 = self.d1 - vol * math.sqrt(self.T)
+            
     def pricing_BS(self) -> float:
         m, o = self.market_data, self.option_data
-        vol = m.vol, s0 = m.s0
-        T = self.T, r = m.rate
-        kind = o.call_put, k = o.k
-        if vol <= 1e-10 or T <= 1e-10:
-            fwd = s0 * math.exp(r * T)
-            intrinsic = max(fwd - k, 0.0) if kind == "call" else max(k - fwd, 0.0)
-            return intrinsic * math.exp(-r * T)
-        d1 = (math.log(s0 / k) + (r + 0.5 * vol ** 2) * T) / (vol * math.sqrt(T))
-        d2 = d1 - vol * math.sqrt(T)
-        if kind == "call":
-            return s0 * norm.cdf(d1) - k * math.exp(-r * T) * norm.cdf(d2)
-        return k * math.exp(-r * T) * norm.cdf(-d2) - s0 * norm.cdf(-d1)
+        if self._degenerate:
+            fwd = m.s0 * math.exp(m.rate * self.T)
+            intrinsic = max(fwd - o.K, 0.0) if o.call_put == "call" else max(o.K - fwd, 0.0)
+            return intrinsic * math.exp(-m.rate * self.T)
+        disc_k = o.K * math.exp(-m.rate * self.T)
+        if o.call_put == "call":
+            return m.s0 * norm.cdf(self.d1) - disc_k * norm.cdf(self.d2)
+        return disc_k * norm.cdf(-self.d2) - m.s0 * norm.cdf(-self.d1)
+    
     @staticmethod
     def is_available(market_data: Market, option_data: Option) -> bool:
         return not option_data.is_american() and market_data.dividend == 0.0 and market_data.vol > 0.0
@@ -40,6 +38,7 @@ class Black_Scholes:
 class GreeksBS:
     def __init__(self, pricer_parameters: PriceParameters, market_data: Market, option_data: Option) -> None:
         self.BS = Black_Scholes(pricer_parameters, market_data, option_data)
+        
     def compute(self, greeks=GREEKS) -> dict:
         bs = self.BS
         if bs._degenerate:
