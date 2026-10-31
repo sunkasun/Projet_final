@@ -9,7 +9,7 @@ from PriceParameters import PriceParameters, TreeMethod
 from Study import EtudeComparative, EtudePerformances, EtudePricing
 
 class PricingApp:
-    PRUNING_THRESHOLD = 1e-8
+    PRUNING_THRESHOLD = 1e-9
     MAX_STEPS = 10_000
     ENGINES = {"Vectorisé numpy": ("vector", "backward"), "Objets Node - backward": ("objects", "backward"),
                "Objets Node - récursif": ("objects", "recursive")}
