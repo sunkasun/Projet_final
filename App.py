@@ -24,41 +24,51 @@ class PricingApp:
         """Menu latéral : construit séparément Market, Option et PriceParameters."""
         today = dt.date.today()
         st.sidebar.header("Paramètres")
-        with st.sidebar.form("pricing_parameters"):
-            st.subheader("Marché")
-            spot = st.number_input("Spot S0", min_value=0.01, value=100.0, step=1.0)
-            rate = st.number_input("Taux sans risque (%)", value=3.0, step=0.25, format="%.2f") / 100.0
-            vol = st.number_input("Volatilité (%)", min_value=0.0, value=20.0, step=1.0, format="%.2f") / 100.0
-            dividend = st.number_input("Dividende (montant)", min_value=0.0, value=0.0, step=0.5,
-                                       help="Dividende discret versé une fois ; 0 = pas de dividende.")
-            ex_div_date = st.date_input("Date ex-dividende", value=today + dt.timedelta(days=182), format="DD/MM/YYYY")
-            st.subheader("Option")
-            strike = st.number_input("Strike K", min_value=0.01, value=100.0, step=1.0)
-            c1, c2 = st.columns(2)
-            kind = c1.selectbox("Type", ["call", "put"], format_func=str.capitalize)
-            exercise = c2.selectbox("Exercice", ["europeen", "americaine"],
-                                    format_func=lambda e: "Européenne" if e == "europeen" else "Américaine")
-            maturity = st.date_input("Maturité", value=today + dt.timedelta(days=365), format="DD/MM/YYYY")
-            st.subheader("Pricer")
-            pricing_date = st.date_input("Date de pricing", value=today, format="DD/MM/YYYY")
-            method = st.selectbox("Méthode d'arbre", [TreeMethod.BINOMIAL, TreeMethod.TRINOMIAL],
-                                  format_func=lambda m: m.label)
-            optimal_mode = st.radio("Choix du nombre de pas",
-                                    ["Nombre de pas N", "Nombre de pas optimal"],
-                                    horizontal=True, key="steps_mode") == "Nombre de pas optimal"
-            nb_steps = st.number_input("Nombre de pas N", min_value=1, max_value=self.MAX_STEPS, value=100, step=10,
-                                       help="Utilisé en mode « Nombre de pas N ».")
-            max_error = st.number_input("Erreur maximale", min_value=1e-6, value=0.01, step=0.001, format="%.4f",
-                                        help="Utilisé en mode « Nombre de pas optimal ».")
-            engine, pricing_method = self.ENGINES[st.selectbox("Moteur de calcul", list(self.ENGINES))]
-            pruning = st.checkbox("Activer le pruning", value=True,
-                                  help=f"Les nœuds de probabilité < {self.PRUNING_THRESHOLD:.0e} ne sont plus ramifiés.")
-            submitted = st.form_submit_button("Lancer le pricer", type="primary")
     
+        st.sidebar.subheader("Marché")
+        spot = st.sidebar.number_input("Spot S0", min_value=0.01, value=100.0, step=1.0)
+        rate = st.sidebar.number_input("Taux sans risque (%)", value=3.0, step=0.25, format="%.2f") / 100.0
+        vol = st.sidebar.number_input("Volatilité (%)", min_value=0.0, value=20.0, step=1.0, format="%.2f") / 100.0
+        dividend = st.sidebar.number_input("Dividende (montant)", min_value=0.0, value=0.0, step=0.5,
+                                           help="Dividende discret versé une fois ; 0 = pas de dividende.")
+        ex_div_date = st.sidebar.date_input("Date ex-dividende", value=today + dt.timedelta(days=182), format="DD/MM/YYYY")
+    
+        st.sidebar.subheader("Option")
+        strike = st.sidebar.number_input("Strike K", min_value=0.01, value=100.0, step=1.0)
+        c1, c2 = st.sidebar.columns(2)
+        kind = c1.selectbox("Type", ["call", "put"], format_func=str.capitalize)
+        exercise = c2.selectbox("Exercice", ["europeen", "americaine"],
+                                format_func=lambda e: "Européenne" if e == "europeen" else "Américaine")
+        maturity = st.sidebar.date_input("Maturité", value=today + dt.timedelta(days=365), format="DD/MM/YYYY")
+    
+        st.sidebar.subheader("Pricer")
+        pricing_date = st.sidebar.date_input("Date de pricing", value=today, format="DD/MM/YYYY")
+        method = st.sidebar.selectbox("Méthode d'arbre", [TreeMethod.BINOMIAL, TreeMethod.TRINOMIAL],
+                                      format_func=lambda m: m.label)
+        optimal_mode = st.sidebar.radio("Choix du nombre de pas",
+                                        ["Nombre de pas N", "Nombre de pas optimal"],
+                                        horizontal=True, key="steps_mode") == "Nombre de pas optimal"
+    
+        st.session_state.setdefault("saved_nb_steps", 100)
+        st.session_state.setdefault("saved_max_error", 0.01)
         if optimal_mode:
+            max_error = st.sidebar.number_input("Erreur maximale", min_value=1e-6,
+                                                value=st.session_state.saved_max_error,
+                                                step=0.001, format="%.4f")
+            st.session_state.saved_max_error = max_error
             T = PriceParameters.year_fraction(pricing_date, maturity)
             nb_steps = min(PriceParameters.nb_steps_from_error(max_error, spot, vol, max(T, 1e-12)), self.MAX_STEPS)
             st.sidebar.caption(f"Nombre de pas optimal retenu : N = {nb_steps:,}")
+        else:
+            nb_steps = st.sidebar.number_input("Nombre de pas N", min_value=1, max_value=self.MAX_STEPS,
+                                               value=st.session_state.saved_nb_steps, step=10)
+            st.session_state.saved_nb_steps = nb_steps
+    
+        engine, pricing_method = self.ENGINES[st.sidebar.selectbox("Moteur de calcul", list(self.ENGINES))]
+        pruning = st.sidebar.checkbox("Activer le pruning", value=True,
+                                      help=f"Les nœuds de probabilité < {self.PRUNING_THRESHOLD:.0e} ne sont plus ramifiés.")
+        submitted = st.sidebar.button("Lancer le pricer", type="primary")
+    
         # un dividende hors de ]pricing, maturité] n'a pas d'effet : il est ignoré
         if not (pricing_date < ex_div_date <= maturity):
             dividend = 0.0
