@@ -299,7 +299,7 @@ class EtudeComparative:
             fig.add_hline(y=ref if view == "Niveau" else 0, line_dash="dot", line_color="black",
                           annotation_text=ref_label if view == "Niveau" else None)
             fig.update_xaxes(type="log")
-            Affichage.show_chart(fig, "cmp_conv")
+            Affichage.show_chart(fig, f"cmp_conv_{key}")
 
     @classmethod
     def convergence_grecques(cls, market: Market, option: Option, pricer: PriceParameters, key: str) -> None:
@@ -308,7 +308,6 @@ class EtudeComparative:
         with Affichage.section("Convergence des grecques : binomial vs trinomial"):
             c_g, c_v = st.columns([2, 3], vertical_alignment="bottom")
             greek = c_g.selectbox("Grecque", GREEKS, key=f"cmp_greek_conv_{key}")
-            view  = c_v.radio("Graphique", ..., horizontal=True, key=f"cmp_gconv_view_{key}")
             view = c_v.radio("Graphique", cls.CONV_VIEWS if bs else cls.CONV_VIEWS[:1], horizontal=True, key=f"cmp_gconv_view_{key}")
             view = view if bs else "Niveau"
             store = st.session_state.setdefault("res_conv_greeks", {})
@@ -334,7 +333,7 @@ class EtudeComparative:
                 fig.add_hline(y=ref if view == "Niveau" else 0, line_dash="dot", line_color="black",
                               annotation_text="BS" if view == "Niveau" else None)
             fig.update_xaxes(type="log")
-            Affichage.show_chart(fig, "cmp_gconv")
+            Affichage.show_chart(fig, f"cmp_gconv_{key}")
             st.caption("Les dérivées secondes (Gamma, Vomma) oscillent davantage : elles dérivent deux fois un prix déjà "
                        "discrétisé, et la grille se déplace avec le paramètre choqué.")
 
@@ -377,7 +376,7 @@ class EtudeComparative:
                                              yaxis="y2", line=dict(color=Affichage.METHOD_STYLE[m][0], dash="dot")))
             fig.update_layout(yaxis2=dict(title="Pente et écart", overlaying="y", side="right", showgrid=False))
             fig.add_vline(x=market.s0, line_dash="dash", line_color="grey", annotation_text="S0")
-            Affichage.show_chart(fig, "cmp_strike")
+            Affichage.show_chart(fig, f"cmp_strike_{key}")
 
     @staticmethod
     def types_options(market: Market, option: Option, pricer: PriceParameters, key: str) -> None:
@@ -428,7 +427,7 @@ class EtudeComparative:
                     fig.add_trace(go.Scatter(x=df["x"], y=df[f"{kind} américain"] - df[f"{kind} européen"],
                                              mode="lines+markers", name=f"{kind} : US − EU",
                                              line=dict(color=Affichage.COLORS[i])))
-            Affichage.show_chart(fig, "cmp_types")
+            Affichage.show_chart(fig, f"cmp_types_plot_{key}")
 
     @staticmethod
     def grecques_selon_parametre(market: Market, option: Option, pricer: PriceParameters, key: str) -> None:
@@ -473,7 +472,7 @@ class EtudeComparative:
                 if f"BS {g}" in df:
                     fig.add_trace(go.Scatter(x=df["x"], y=df[f"BS {g}"] / scale, name=f"{g} – BS",
                                              line=dict(color=color, dash="dot")))
-            Affichage.show_chart(fig, "cmp_gparam")
+            Affichage.show_chart(fig, f"cmp_gparam_plot_{key}")
 
 
 # ====================================================================================
@@ -590,7 +589,7 @@ class EtudePerformances:
             view = st.radio("Graphique", views, horizontal=True, key="perf_dg_view")
             col = {"Temps de calcul": "Temps (s)", "Delta selon N": "Delta", "Gamma selon N": "Gamma"}[view]
             Affichage.lines({m: (gm[gm["Méthode"] == m], col, d) for m, d in zip(Orchestrator.DELTA_METHODS, ("solid", "dot", "dash"))},
-                            view, col, "perf_dg", log_x=True, log_y=view == "Temps de calcul")
+                            view, col, f"perf_dg_{key}", log_x=True, log_y=view == "Temps de calcul")
             if bs:
                 st.caption(f"Black-Scholes : Delta {bs['Delta']:.6f}, Gamma {bs['Gamma']:.6f}. Le choc du spot déplace la "
                            "grille, ce qui rend son Gamma bruité ; les nœuds autour de la racine gardent une grille fixe.")
@@ -623,7 +622,6 @@ class EtudePerformances:
             err = st.session_state["res_prune"][1]
             c1, c2 = st.columns(2)
             with c1:
-                Affichage.error_heatmap(err, "Erreur de prix", "Erreur de prix", "perf_prune_price")
+                Affichage.error_heatmap(err, "Erreur de prix", "Erreur de prix", f"perf_prune_price_{key}")
             with c2:
-                Affichage.error_heatmap(err, "Erreur de distribution", "Erreur de distribution terminale (KS)",
-                                        "perf_prune_dist")
+                Affichage.error_heatmap(err, "Erreur de distribution", "Erreur de distribution terminale (KS)", f"perf_prune_dist_{key}")
