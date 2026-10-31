@@ -15,7 +15,7 @@ from Market import Market
 from Option import Option
 from Orchestrator import Orchestrator
 from PriceParameters import PriceParameters, TreeMethod
-from Sensibilites import GREEKS
+from Sensibilities import GREEKS
 from TreeVisualizer import TreeVisualizer
 
 
