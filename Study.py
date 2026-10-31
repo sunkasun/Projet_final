@@ -156,6 +156,7 @@ class EtudePricing:
     def arbre(pricer: PriceParameters, state: dict) -> None:
         """Arbre de valorisation : ordonnée, couleur des nœuds, fenêtre de pas, frontière d'exercice."""
         n = pricer.nb_steps
+        with Affichage.section(f"Arbre de valorisation – {n:,} pas", "..."):
         with Affichage.section("Arbre de valorisation", "..."):
             c_y, c_color, c_log = st.columns([1, 1, 0.6], vertical_alignment="bottom")
             y_label = c_y.selectbox("Ordonnée", list(TreeVisualizer.Y_OPTIONS), key="tree_y")
@@ -177,8 +178,8 @@ class EtudePricing:
         """Histogramme et fonction de répartition du sous-jacent à un pas choisi (axe cadré sur 99,9 % de la masse)."""
         levels = state["tree"].levels
         n = len(levels) - 1
-        with Affichage.section("Distribution du sous-jacent",
-                               "Loi risque-neutre du sous-jacent lue sur l'arbre au pas choisi."):
+        with Affichage.section(f"Distribution du sous-jacent – {n:,} pas",
+                           "Loi risque-neutre du sous-jacent lue sur l'arbre au pas choisi."):
             t = st.slider("Pas de temps t étudié", 0, n, n, key="dist_t")
             cache_key = (id(state["tree"]), t)
             if st.session_state.get("dist_key") != cache_key:
@@ -283,13 +284,14 @@ class EtudeComparative:
     @classmethod
     def convergence_prix(cls, market: Market, option: Option, pricer: PriceParameters, key: str) -> None:
         """Prix binomial et trinomial selon N (1 à 100, puis 40 valeurs jusqu'au N maximal) : niveau, erreur, x N."""
-        with Affichage.section("Convergence du prix : binomial vs trinomial", "Trait plein : binomial ; tirets : "
-                               "trinomial. Référence : Black-Scholes, sinon trinomial à 2 x N."):
+        n_max = max(500, pricer.nb_steps)
+        with Affichage.section(f"Convergence du prix : binomial vs trinomial – 1 à {n_max:,} pas",
+                           "Trait plein : binomial ; tirets : "
+                           "trinomial. Référence : Black-Scholes, sinon trinomial à 2 x N."):
             view = st.radio("Graphique", cls.CONV_VIEWS, horizontal=True, key=f"cmp_conv_view_{key}")
             saved = st.session_state.get("res_conv_price")
             if saved is None or saved[0] != key:
                 with st.spinner("Convergence du prix…"):
-                    n_max = max(500, pricer.nb_steps)
                     grid = sorted(set(range(1, 101)) | {int(round(x)) for x in np.geomspace(100, n_max, 41)})
                     df = pd.DataFrame([{"N": n, **{m.label: Orchestrator.price(market, option, PriceParameters(
                         **{**vars(pricer), "nb_steps": n, "tree_method": m, "engine": "vector"}))
@@ -319,7 +321,9 @@ class EtudeComparative:
     def convergence_grecques(cls, market: Market, option: Option, pricer: PriceParameters, key: str) -> None:
         """Une grecque (GreeksTree) selon N, binomial et trinomial ; référence Black-Scholes si disponible."""
         bs = Orchestrator.greeks_bs(market, option, pricer)
-        with Affichage.section("Convergence des grecques : binomial vs trinomial",
+        n_max = min(max(100, pricer.nb_steps),
+                    2000 if pricer.pruning else pricer.max_unpruned_steps("vector"))
+        with Affichage.section(f"Convergence des grecques : binomial vs trinomial – 3 à {n_max:,} pas",
                                "Erreur vs Black-Scholes ; « Erreur x N » pour l'ordre de convergence. "
                                "Si BS n'est pas disponible (américaine, dividende) : valeurs brutes."):
             c_g, c_v = st.columns([2, 3], vertical_alignment="bottom")
@@ -335,8 +339,6 @@ class EtudeComparative:
                 store["key"] = key
             if greek not in store:
                 with st.spinner(f"Convergence de {greek}…"):
-                    n_max = min(max(100, pricer.nb_steps),
-                                2000 if pricer.pruning else pricer.max_unpruned_steps("vector"))
                     grid = sorted(set(range(3, min(100, n_max) + 1)) |
                                   ({int(round(x)) for x in np.geomspace(100, n_max, 31)} if n_max > 100 else set()))
                     store[greek] = {m: pd.DataFrame([{"N": n, greek: Orchestrator.greeks_tree(
@@ -369,7 +371,9 @@ class EtudeComparative:
     def prix_selon_strike(cls, market: Market, option: Option, pricer: PriceParameters, key: str) -> None:
         """Prix, pente dV/dK et écart à Black-Scholes pour 101 strikes valorisés sur la même grille."""
         bs_ok = Black_Scholes.is_available(market, option)
-        with Affichage.section("Prix et pente selon le strike", "Pente d'un call : -e^(-rT)·P(S_T > K) ; d'un put : "
+        n_used = min(pricer.nb_steps, 5000)
+        with Affichage.section(f"Prix et pente selon le strike – {n_used:,} pas",
+                               "Pente d'un call : -e^(-rT)·P(S_T > K) ; d'un put : "
                                "e^(-rT)·P(S_T < K). Axe de droite : pente et écart arbre - BS."):
             strikes = np.linspace(0.5 * option.K, 1.5 * option.K, 101)
             saved = st.session_state.get("res_strike")
@@ -378,8 +382,8 @@ class EtudeComparative:
                     curves = {}
                     for m in cls.METHODS:
                         prices = Orchestrator.price_many(market, option, PriceParameters(
-                            **{**vars(pricer), "nb_steps": min(pricer.nb_steps, 5000), "tree_method": m}), strikes,
-                            [option.call_put == "call"] * 101, [option.is_american()] * 101)
+                                    **{**vars(pricer), "nb_steps": n_used, "tree_method": m}), strikes,
+                                    [option.call_put == "call"] * 101, [option.is_american()] * 101)
                         curves[m] = pd.DataFrame({"K": strikes, "Prix": prices, "Pente": np.gradient(prices, strikes)})
                 st.session_state["res_strike"] = (key, curves)
             curves = st.session_state["res_strike"][1]
@@ -409,7 +413,9 @@ class EtudeComparative:
     @staticmethod
     def types_options(market: Market, option: Option, pricer: PriceParameters, key: str) -> None:
         """Call / put x européen / américain quand le dividende, sa date, la maturité ou le taux varie."""
-        with Affichage.section("Call / put, américain / européen", "Les quatre options sur la même grille. L'écart "
+        n_used = min(pricer.nb_steps, 1000)
+        with Affichage.section(f"Call / put, américain / européen – {n_used:,} pas",
+                               "Les quatre options sur la même grille. L'écart "
                                "américaine - européenne mesure la valeur de l'exercice anticipé."):
             c1, c2, c3 = st.columns([3, 2, 1.4], vertical_alignment="bottom")
             which = c1.radio("Paramètre qui varie", ["Dividende", "Date ex-dividende", "Maturité", "Taux"], horizontal=True, key=f"cmp_types_{key}")
@@ -436,7 +442,7 @@ class EtudeComparative:
                     else:
                         xs = list(np.linspace(-0.01, 0.10, 12))
                         cases = [(Market(m.s0, x, m.vol, m.dividend, m.ex_div_date), option) for x in xs]
-                    p = PriceParameters(**{**vars(pricer), "nb_steps": min(pricer.nb_steps, 1000)})
+                    p = PriceParameters(**{**vars(pricer), "nb_steps": n_used})
                     labels = ["Call européen", "Call américain", "Put européen", "Put américain"]
                     df = pd.DataFrame([{"x": x, **dict(zip(labels, Orchestrator.price_many(
                         mk, op, p, [op.K] * 4, [True, True, False, False], [False, True, False, True])))}
@@ -460,7 +466,8 @@ class EtudeComparative:
     @staticmethod
     def grecques_selon_parametre(market: Market, option: Option, pricer: PriceParameters, key: str) -> None:
         """Grecques de l'arbre (trait plein) et Black-Scholes (pointillés) quand S0, r, T ou σ varie."""
-        with Affichage.section("Grecques selon un paramètre, comparées à Black-Scholes"):
+        n_used = min(pricer.nb_steps, 300)
+        with Affichage.section(f"Grecques selon un paramètre, comparées à Black-Scholes – {n_used:,} pas", ""):
             c_p, c_g, c_n = st.columns([2, 3, 1.3], vertical_alignment="bottom")
             which = c_p.radio("Paramètre qui varie", ["S0", "r", "T", "σ"], horizontal=True, key=f"cmp_gparam_{key}")
             greeks = c_g.multiselect("Grecques", GREEKS, default=["Delta", "Gamma", "Vega"], key=f"cmp_gparam_sel_{key}")
@@ -484,7 +491,7 @@ class EtudeComparative:
                     else:
                         xs = list(np.linspace(0.05, 0.60, 25))
                         cases = [(Market(**{**vars(market), "vol": x}), option) for x in xs]
-                    p = PriceParameters(**{**vars(pricer), "nb_steps": min(pricer.nb_steps, 300)})
+                    p = PriceParameters(**{**vars(pricer), "nb_steps": n_used})
                     rows = []
                     for x, (mk, op) in zip(xs, cases):
                         bs = Orchestrator.greeks_bs(mk, op, p) or {}
@@ -534,7 +541,9 @@ class EtudePerformances:
     @staticmethod
     def temps_execution(market: Market, option: Option, pricer: PriceParameters, key: str) -> None:
         """Temps total (construction + valorisation) : moteur vectorisé vs objets, pruning ON / OFF."""
-        with Affichage.section("Temps d'exécution : vectorisé vs objets, avec et sans pruning",
+        n_max = min(max(1000, pricer.nb_steps), 10_000)
+        grid = sorted({n for n in (50, 100, 200, 500, 1000, 2000, 5000, 10000) if n <= n_max} | {pricer.nb_steps})
+        with Affichage.section(f"Temps d'exécution : vectorisé vs objets, avec et sans pruning – 50 à {grid[-1]:,} pas",
                                "Trait plein : pruning ON ; pointillés : OFF. Les deux moteurs construisent le même arbre."):
             saved = st.session_state.get("res_time")
             if saved is None or saved[0] != key:
@@ -556,7 +565,7 @@ class EtudePerformances:
     @staticmethod
     def memoire(market: Market, option: Option, pricer: PriceParameters, key: str) -> None:
         """Pic de mémoire Python (tracemalloc) et nombre de nœuds : pruning ON vs OFF, N = 10 → 100."""
-        with Affichage.section(f"Mémoire et nœuds conservés : pruning ON vs OFF"):
+        with Affichage.section("Mémoire et nœuds conservés : pruning ON vs OFF – 10 à 100 pas", ""):
             saved = st.session_state.get("res_memory")
             if saved is None or saved[0] != key:
                 with st.spinner("Mesures mémoire…"):
@@ -576,7 +585,10 @@ class EtudePerformances:
     @staticmethod
     def backward_recursif_vectorise(market: Market, option: Option, pricer: PriceParameters, key: str) -> None:
         """Valorisation seule : backward et récursif (même arbre de Node) contre vectorisé (numpy)."""
-        with Affichage.section("Valorisation : backward (objets) vs récursif (objets) vs vectorisé (numpy)"):
+        n_max = min(max(1000, pricer.nb_steps), 5000 if pricer.pruning else pricer.max_unpruned_steps("objects"))
+        grid = [n for n in (50, 100, 250, 500, 1000, 2000, 5000) if n <= n_max]
+        grid_hi = max(grid) if grid else n_max
+        with Affichage.section(f"Valorisation : backward (objets) vs récursif (objets) vs vectorisé (numpy) – 50 à {grid_hi:,} pas", ""):
             saved = st.session_state.get("res_br")
             if saved is None or saved[0] != key:
                 n_max = min(max(1000, pricer.nb_steps), 5000 if pricer.pruning else pricer.max_unpruned_steps("objects"))
@@ -599,7 +611,7 @@ class EtudePerformances:
     def methodes_delta_gamma(market: Market, option: Option, pricer: PriceParameters, key: str) -> None:
         """Delta et Gamma par les trois méthodes du cours : temps de calcul et écart à Black-Scholes."""
         bs = Orchestrator.greeks_bs(market, option, pricer, ("Delta", "Gamma"))
-        with Affichage.section("Delta et Gamma : trois méthodes de calcul (slides du cours)"):
+        with Affichage.section("Delta et Gamma : trois méthodes de calcul (slides du cours) – 25 à 1 000 pas", ""):
             saved = st.session_state.get("res_dg")
             if saved is None or saved[0] != key:
                 rows = []
@@ -625,7 +637,7 @@ class EtudePerformances:
     @classmethod
     def erreurs_pruning(cls, market: Market, option: Option, pricer: PriceParameters, key: str) -> None:
         """Heatmaps p_min × N : erreur de prix et erreur de distribution terminale (Kolmogorov-Smirnov)."""
-        with Affichage.section("Erreur due au pruning selon p_min et N",
+        with Affichage.section("Erreur due au pruning selon p_min et N – 50 à 400 pas",
                                "Erreur = |avec pruning − sans pruning| à N identique (couleur en log10)."):
             saved = st.session_state.get("res_prune")
             if saved is None or saved[0] != key:
