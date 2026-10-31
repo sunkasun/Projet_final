@@ -8,7 +8,7 @@ from Market import Market
 from Option import Option
 from OptionPricer import OptionPricerTree
 from PriceParameters import PriceParameters
-from Sensibilites import GREEKS, GreeksTree
+from Sensibilities import GREEKS, GreeksTree
 from Tree import Tree, TreeNode, TreeVectorized
 
 class Orchestrator:
