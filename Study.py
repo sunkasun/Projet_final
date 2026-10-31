@@ -372,57 +372,37 @@ class EtudeComparative:
         bs_ok = Black_Scholes.is_available(market, option)
         n_used = min(pricer.nb_steps, 5000)
         method = pricer.tree_method
-        with Affichage.section(
-                f"Prix et pente selon le strike – {n_used:,} pas ({method.label.lower()})",
-                "Pente d'un call : -e^(-rT)·P(S_T > K) ; d'un put : e^(-rT)·P(S_T < K). "
-                "Axe de droite : pente · axe extérieur : écart arbre - BS."):
+        with Affichage.section(f"Prix et pente selon le strike – {n_used:,} pas ({method.label.lower()})",
+                               "Pente d'un call : -e^(-rT)·P(S_T > K) ; d'un put : "
+                               "e^(-rT)·P(S_T < K). Axe de droite : pente et écart arbre - BS."):
             strikes = np.linspace(0.5 * option.K, 1.5 * option.K, 101)
             saved = st.session_state.get("res_strike")
             if saved is None or saved[0] != key:
                 with st.spinner("Prix selon le strike…"):
-                    prices = Orchestrator.price_many(
-                        market, option,
-                        PriceParameters(**{**vars(pricer), "nb_steps": n_used, "tree_method": method}),
-                        strikes, [option.call_put == "call"] * 101, [option.is_american()] * 101)
-                    curve = pd.DataFrame({"K": strikes, "Prix": prices,
-                                          "Pente": np.gradient(prices, strikes)})
+                    prices = Orchestrator.price_many(market, option, PriceParameters(
+                                **{**vars(pricer), "nb_steps": n_used, "tree_method": method}), strikes,
+                                [option.call_put == "call"] * 101, [option.is_american()] * 101)
+                    curve = pd.DataFrame({"K": strikes, "Prix": prices, "Pente": np.gradient(prices, strikes)})
                 st.session_state["res_strike"] = (key, curve)
             curve = st.session_state["res_strike"][1]
-    
-            fig = Affichage.new_fig(f"Prix et pente selon le strike – {method.label}", "Strike K",
-                                    "Prix de l'option", height=480)
+            fig = Affichage.new_fig(f"Prix et pente selon le strike – {method.label}", "Strike K", "Prix de l'option", height=480)
             color, _ = Affichage.METHOD_STYLE[method]
-            fig.add_trace(go.Scatter(x=curve["K"], y=curve["Prix"], name=f"Prix – {method.label}",
-                                     line=dict(color=color)))
-            fig.add_trace(go.Scatter(x=curve["K"], y=curve["Pente"], name=f"Pente – {method.label}",
-                                     yaxis="y2", line=dict(color=color, dash="dash")))
-    
-            if bs_ok:                                                    # BS : prix fermé et pente analytique
+            fig.add_trace(go.Scatter(x=curve["K"], y=curve["Prix"], name=f"Prix - {method.label}", line=dict(color=color)))
+            fig.add_trace(go.Scatter(x=curve["K"], y=curve["Pente"], name=f"Pente - {method.label}", yaxis="y2",
+                                     line=dict(color=color, dash="dash")))
+            if bs_ok:                                     # BS : prix fermé et pente analytique
                 T = PriceParameters.year_fraction(pricer.pricing_date, option.maturity)
-                bs_price = np.array([Black_Scholes.price_from(market.s0, k, T, market.rate, market.vol,
-                                                              option.call_put) for k in strikes])
-                d2 = (np.log(market.s0 / strikes) + (market.rate - 0.5 * market.vol ** 2) * T) / (
-                        market.vol * math.sqrt(T))
+                bs_price = np.array([Black_Scholes.price_from(market.s0, k, T, market.rate, market.vol, option.call_put)
+                                     for k in strikes])
+                d2 = (np.log(market.s0 / strikes) + (market.rate - 0.5 * market.vol ** 2) * T) / (market.vol * math.sqrt(T))
                 disc = math.exp(-market.rate * T)
                 slope = -disc * norm.cdf(d2) if option.call_put == "call" else disc * norm.cdf(-d2)
-                fig.add_trace(go.Scatter(x=strikes, y=bs_price, name="Prix – BS",
-                                         line=dict(color="black", width=1)))
-                fig.add_trace(go.Scatter(x=strikes, y=slope, name="Pente – BS", yaxis="y2",
+                fig.add_trace(go.Scatter(x=strikes, y=bs_price, name="Prix - BS", line=dict(color="black", width=1)))
+                fig.add_trace(go.Scatter(x=strikes, y=slope, name="Pente - BS", yaxis="y2",
                                          line=dict(color="black", width=1, dash="dash")))
-                fig.add_trace(go.Scatter(x=strikes, y=curve["Prix"] - bs_price,
-                                         name=f"Écart arbre – BS – {method.label}", yaxis="y3",
-                                         line=dict(color=color, dash="dot", width=2)))
-            if bs_ok:
-                fig.update_layout(
-                    xaxis=dict(domain=[0, 0.72]),
-                    yaxis2=dict(title="Pente", overlaying="y", side="right", showgrid=False),
-                    yaxis3=dict(title="Écart arbre - BS", overlaying="y", side="right",
-                                anchor="free", position=1.0, showgrid=False, tickformat=".2e"),
-                    margin=dict(l=70, r=170, t=60, b=40),
-                )
-            else:
-                fig.update_layout(yaxis2=dict(title="Pente", overlaying="y", side="right", showgrid=False))
-    
+                fig.add_trace(go.Scatter(x=strikes, y=curve["Prix"] - bs_price, name=f"Écart arbre - BS - {method.label}",
+                                         yaxis="y2", line=dict(color=color, dash="dot")))
+            fig.update_layout(yaxis2=dict(title="Pente et écart", overlaying="y", side="right", showgrid=False))
             fig.add_vline(x=market.s0, line_dash="dash", line_color="grey", annotation_text="S0")
             Affichage.show_chart(fig, f"cmp_strike_{key}")
                 
