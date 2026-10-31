@@ -4,7 +4,7 @@ from scipy.stats import norm
 from Market import Market
 from Option import Option
 from PriceParameters import PriceParameters
-from Sensibilites import GREEKS, TRADING_DAYS
+from Sensibilities import GREEKS, TRADING_DAYS
 
 class Black_Scholes:
     def __init__(self, pricer_parameters: PriceParameters, market_data: Market, option_data: Option) -> None:
