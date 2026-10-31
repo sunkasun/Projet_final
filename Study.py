@@ -139,9 +139,9 @@ class EtudePricing:
         with Affichage.section(f"Résultat du pricing - {label}, {pricer.tree_method.label}, {pricer.nb_steps:,} pas"):
             c = st.columns(5)
             c[0].metric("Prix de l'option", f"{price:,.6f}")
-            c[1].metric("Valeur intrinsèque", f"{intrinsic:,.4f}")
-            c[2].metric("Valeur temps", f"{price - intrinsic:,.4f}")
-            c[3].metric("Black-Scholes", "N/A" if bs is None else f"{bs:,.4f}",
+            c[1].metric("Valeur intrinsèque", f"{intrinsic:,.2f}")
+            c[2].metric("Valeur temps", f"{price - intrinsic:,.6f}")
+            c[3].metric("Black-Scholes", "N/A" if bs is None else f"{bs:,.6f}",
                         delta=None if bs is None else f"arbre - BS : {price - bs:+.5f}", delta_color="off",
                         help="Disponible seulement pour une option européenne sans dividende.")
             c[4].metric("Taille de l'arbre", f"{state['nodes']:,} nœuds")
