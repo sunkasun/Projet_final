@@ -412,17 +412,20 @@ class EtudeComparative:
                 fig.add_trace(go.Scatter(x=strikes, y=curve["Prix"] - bs_price,
                                          name=f"Écart arbre – BS – {method.label}", yaxis="y3",
                                          line=dict(color=color, dash="dot", width=2)))
-    
-            # yaxis2 (pente) à droite ; yaxis3 (écart) plus à l'extérieur, avec sa propre échelle.
-            fig.update_layout(yaxis2=dict(title="Pente", overlaying="y", side="right", showgrid=False))
             if bs_ok:
                 fig.update_layout(
-                    margin=dict(l=70, r=180, t=60, b=40),
+                    xaxis=dict(domain=[0, 0.72]),
+                    yaxis2=dict(title="Pente", overlaying="y", side="right", showgrid=False),
                     yaxis3=dict(title="Écart arbre - BS", overlaying="y", side="right",
-                                anchor="free", position=1.15, showgrid=False, tickformat=".2e"))
+                                anchor="free", position=1.0, showgrid=False, tickformat=".2e"),
+                    margin=dict(l=70, r=170, t=60, b=40),
+                )
+            else:
+                fig.update_layout(yaxis2=dict(title="Pente", overlaying="y", side="right", showgrid=False))
+    
             fig.add_vline(x=market.s0, line_dash="dash", line_color="grey", annotation_text="S0")
             Affichage.show_chart(fig, f"cmp_strike_{key}")
-
+                
     @staticmethod
     def types_options(market: Market, option: Option, pricer: PriceParameters, key: str) -> None:
         """Call / put x européen / américain quand le dividende, sa date, la maturité ou le taux varie."""
