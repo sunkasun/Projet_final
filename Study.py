@@ -120,12 +120,12 @@ class EtudePricing:
         Affichage.params_expander(market, option, pricer, {"Temps de construction (s)": f"{state['build_s']:.3f}","Temps de valorisation (s)": f"{state['price_s']:.3f}"})
         with Affichage.safe("Résultat du pricing"):
             cls.resultats(market, option, pricer, state)
+        with Affichage.safe("Grecques"):
+            cls.grecques(market, option, pricer, state)
         with Affichage.safe("Arbre"):
             cls.arbre(pricer, state)
         with Affichage.safe("Distribution"):
             cls.distribution(market, option, pricer, state)
-        with Affichage.safe("Grecques"):
-            cls.grecques(market, option, pricer, state)
 
     @staticmethod
     def resultats(market: Market, option: Option, pricer: PriceParameters, state: dict) -> None:
@@ -221,14 +221,18 @@ class EtudePricing:
             dg_method = c_meth.selectbox("Méthode pour Delta / Gamma", Orchestrator.DELTA_METHODS, key="greeks_dg")
             if not selected:
                 return
-            store = st.session_state.setdefault("res_greeks", {})         # vidé à chaque nouveau pricing
-            with st.spinner("Calcul des grecques…"):
-                missing = [g for g in selected if g not in store]
-                if missing:
+            store = st.session_state.setdefault("res_greeks", {})
+            missing = [g for g in selected if g not in store]
+            if missing:
+                with st.spinner("Calcul des grecques…"):
                     store.update(Orchestrator.greeks_tree(market, option, pricer, missing))
-                values = {g: store[g] for g in selected}
-                if dg_method != Orchestrator.DELTA_METHODS[0] and {"Delta", "Gamma"} & set(selected):
-                    values["Delta"], values["Gamma"] = Orchestrator.delta_gamma(market, option, pricer, dg_method)
+            values = {g: store[g] for g in selected}
+            if dg_method != Orchestrator.DELTA_METHODS[0] and {"Delta", "Gamma"} & set(selected):
+                dg_store = st.session_state.setdefault("res_dg_values", {})
+                if dg_method not in dg_store:
+                    with st.spinner(f"Delta et Gamma via « {dg_method} »…"):
+                        dg_store[dg_method] = Orchestrator.delta_gamma(market, option, pricer, dg_method)
+                values["Delta"], values["Gamma"] = dg_store[dg_method]
             bs = Orchestrator.greeks_bs(market, option, pricer, selected) or {}
             df = pd.DataFrame([{"Grecque": g, "Arbre": values[g], "Black-Scholes": bs.get(g, np.nan),
                                 "Écart (arbre - BS)": values[g] - bs.get(g, np.nan)} for g in selected])
@@ -251,7 +255,7 @@ class EtudeComparative:
     @classmethod
     def render(cls, market: Market, option: Option, pricer: PriceParameters, key: str) -> None:
         Affichage.params_expander(market, option, pricer)
-        if st.button("> Lancer l'analyse comparative", type="primary", key="run_cmp"):
+        if st.button("Lancer l'analyse comparative", type="primary", key="run_cmp"):
             st.session_state["cmp_run"] = key
         if st.session_state.get("cmp_run") != key:
             st.info("Cliquez sur « Lancer l'analyse comparative » pour générer les graphiques (résultats gardés en mémoire ensuite).")
@@ -486,7 +490,7 @@ class EtudePerformances:
     @classmethod
     def render(cls, market: Market, option: Option, pricer: PriceParameters, key: str) -> None:
         Affichage.params_expander(market, option, pricer)
-        if st.button("▶ Lancer l'analyse des performances", type="primary", key="run_perf"):
+        if st.button("Lancer l'analyse des performances", type="primary", key="run_perf"):
             st.session_state["perf_run"] = key
         if st.session_state.get("perf_run") != key:
             st.info("Cliquez sur « Lancer l'analyse des performances » (de quelques secondes à quelques minutes).")
