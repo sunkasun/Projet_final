@@ -30,6 +30,19 @@ class Black_Scholes:
         if o.call_put == "call":
             return m.s0 * norm.cdf(self.d1) - disc_k * norm.cdf(self.d2)
         return disc_k * norm.cdf(-self.d2) - m.s0 * norm.cdf(-self.d1)
+
+    @staticmethod
+    def price_from(s0: float, k: float, T: float, r: float, vol: float, kind: str) -> float:
+        """Prix Black-Scholes pour un strike donné, sans construire d'objets Market/Option."""
+        if vol <= 1e-10 or T <= 1e-10 or s0 <= 1e-10:
+            fwd = s0 * math.exp(r * max(T, 0.0))
+            intrinsic = max(fwd - k, 0.0) if kind == "call" else max(k - fwd, 0.0)
+            return intrinsic * math.exp(-r * max(T, 0.0))
+        d1 = (math.log(s0 / k) + (r + 0.5 * vol ** 2) * T) / (vol * math.sqrt(T))
+        d2 = d1 - vol * math.sqrt(T)
+        if kind == "call":
+            return s0 * norm.cdf(d1) - k * math.exp(-r * T) * norm.cdf(d2)
+        return k * math.exp(-r * T) * norm.cdf(-d2) - s0 * norm.cdf(-d1)
     
     @staticmethod
     def is_available(market_data: Market, option_data: Option) -> bool:
