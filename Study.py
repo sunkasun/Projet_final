@@ -138,7 +138,7 @@ class EtudePricing:
         label = f"{option.call_put.capitalize()} {'américain' if option.is_american() else 'européen'}"
         with Affichage.section(f"Résultat du pricing - {label}, {pricer.tree_method.label}, {pricer.nb_steps:,} pas"):
             c = st.columns(5)
-            c[0].metric("Prix de l'option", f"{price:,.4f}")
+            c[0].metric("Prix de l'option", f"{price:,.6f}")
             c[1].metric("Valeur intrinsèque", f"{intrinsic:,.4f}")
             c[2].metric("Valeur temps", f"{price - intrinsic:,.4f}")
             c[3].metric("Black-Scholes", "N/A" if bs is None else f"{bs:,.4f}",
