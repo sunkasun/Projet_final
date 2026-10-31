@@ -95,6 +95,7 @@ class PricingApp:
                 if old is not None:                       # libère l'arbre précédent
                     old["tree"].release()
                 st.session_state.pop("res_greeks", None)
+                st.session_state.pop("res_dg_values", None) 
                 gc.collect()
                 with st.spinner("Construction et valorisation de l'arbre…"):
                     st.session_state["pricing"] = Orchestrator.pricing_report(market, option, pricer)
