@@ -447,7 +447,6 @@ class EtudeComparative:
                         for x, (mk, op) in zip(xs, cases)])
                 st.session_state["res_types"] = ((key, which, zero_rate), df)
             df = st.session_state["res_types"][1]
-    
             title = f"Prix et écart américain − européen selon : {which.lower()}"
             if m.rate == 0 and which != "Taux":
                 title += " (r = 0)"
@@ -456,11 +455,10 @@ class EtudeComparative:
                 fig.add_trace(go.Scatter(x=df["x"], y=df[col], mode="lines+markers", name=col,
                                          line=dict(color=Affichage.COLORS[0 if col.startswith("Call") else 1],
                                                    dash="solid" if "américain" in col else "dot")))
-            for i, kind in enumerate(("Call", "Put")):
+            for color_idx, kind in ((2, "Call"), (4, "Put")):
                 fig.add_trace(go.Scatter(x=df["x"], y=df[f"{kind} américain"] - df[f"{kind} européen"],
                                          mode="lines+markers", name=f"{kind} : US − EU", yaxis="y2",
-                                         line=dict(color=Affichage.COLORS[i], dash="dash")))
-    
+                                         line=dict(color=Affichage.COLORS[color_idx], dash="dash")))
             fig.update_layout(yaxis2=dict(title="Écart américain − européen", overlaying="y", side="right",
                                           showgrid=False, tickformat="~g"))
             Affichage.show_chart(fig, f"cmp_types_plot_{key}")
