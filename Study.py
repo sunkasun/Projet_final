@@ -585,16 +585,16 @@ class EtudePerformances:
     @staticmethod
     def backward_recursif_vectorise(market: Market, option: Option, pricer: PriceParameters, key: str) -> None:
         """Valorisation seule : backward et récursif (même arbre de Node) contre vectorisé (numpy)."""
-        n_max = min(max(1000, pricer.nb_steps), 5000 if pricer.pruning else pricer.max_unpruned_steps("objects"))
-        grid = [n for n in (50, 100, 250, 500, 1000, 2000, 5000) if n <= n_max]
+        n_max = min(max(1000, pricer.nb_steps), 10000 if pricer.pruning else pricer.max_unpruned_steps("objects"))
+        grid = [n for n in (50, 100, 250, 500, 1000, 2000, 5000, 10000) if n <= n_max]
         grid_hi = max(grid) if grid else n_max
         with Affichage.section(f"Valorisation : backward (objets) vs récursif (objets) vs vectorisé (numpy) – 50 à {grid_hi:,} pas", ""):
             saved = st.session_state.get("res_br")
             if saved is None or saved[0] != key:
-                n_max = min(max(1000, pricer.nb_steps), 5000 if pricer.pruning else pricer.max_unpruned_steps("objects"))
+                n_max = min(max(1000, pricer.nb_steps), 10000 if pricer.pruning else pricer.max_unpruned_steps("objects"))
                 rows = []
                 with st.spinner("Backward, récursif et vectorisé…"):
-                    for n in (n for n in (50, 100, 250, 500, 1000, 2000, 5000) if n <= n_max):
+                    for n in (n for n in (50, 100, 250, 500, 1000, 2000, 5000, 10000) if n <= n_max):
                         obj = Orchestrator.benchmark(market, option, PriceParameters(
                             **{**vars(pricer), "nb_steps": n, "engine": "objects"}), with_recursive=True)
                         vec = Orchestrator.benchmark(market, option, PriceParameters(
